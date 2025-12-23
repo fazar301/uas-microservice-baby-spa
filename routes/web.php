@@ -111,6 +111,15 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    
+    // Admin User Management Routes (Admin only - checked in controller)
+    Route::prefix('admin')->name('admin.')->group(function () {
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::get('/users/{id}', [UserController::class, 'show'])->name('users.show');
+        Route::get('/users/{id}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::put('/users/{id}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('users.destroy');
+    });
 });
 Route::get('/logout', function(){
     Auth::logout();
@@ -123,7 +132,7 @@ Route::get('/email/verify', function () {
 Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
     $request->fulfill();
  
-    return redirect('/home');
+    return redirect(route('dashboard', absolute: false).'?verified=1');
 })->middleware(['auth', 'signed'])->name('verification.verify');
 
 Route::post('/email/verification-notification', function (Request $request) {
@@ -163,6 +172,28 @@ Route::middleware(['auth'])->group(function () {
     // Payment related routes (now handled by TransaksiController)
     Route::get('/reservations/{reservation}/payment', [TransaksiController::class, 'showPayment'])
         ->name('payment.show');
+
+    // Booking Service routes (Task C - Web Interface)
+    Route::get('/booking/create/{type}/{slug}', [\App\Http\Controllers\BookingController::class, 'create'])
+        ->name('booking.create')
+        ->where('type', 'layanan|paket');
+    
+    Route::post('/booking', [\App\Http\Controllers\BookingController::class, 'store'])
+        ->name('booking.store');
+    
+    Route::get('/booking/success', [\App\Http\Controllers\BookingController::class, 'success'])
+        ->name('booking.success');
+    
+    Route::get('/booking', [\App\Http\Controllers\BookingController::class, 'index'])
+        ->name('booking.index');
+    
+    Route::get('/booking/{id}', [\App\Http\Controllers\BookingController::class, 'show'])
+        ->name('booking.show');
+
+    // Test page for all tasks
+    Route::get('/test-tasks', function () {
+        return view('test-tasks');
+    })->middleware('auth')->name('test.tasks');
     Route::post('/reservations/{reservation}/apply-voucher', [TransaksiController::class, 'applyVoucher'])
         ->name('reservations.apply-voucher');
     Route::post('/payment/process', [TransaksiController::class, 'processPayment'])

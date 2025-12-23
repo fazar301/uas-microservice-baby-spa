@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -29,6 +30,12 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        try {
+            Log::info('User registration attempt', [
+                'email' => $request->email,
+                'correlation_id' => $request->get('correlation_id'),
+            ]);
+
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
@@ -51,13 +58,37 @@ class RegisteredUserController extends Controller
             'noHP' => $request->noHP,
             'role' => 'customer',
             'password' => Hash::make($request->password),
+                // 'email_verified_at' => now(), // Auto-verify email since SMTP is not available
         ]);
 
         event(new Registered($user));
 
         Auth::login($user);
-        // $user->sendEmailVerificationNotification();
+
+            Log::info('User registered successfully', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'correlation_id' => $request->get('correlation_id'),
+            ]);
 
         return redirect(route('dashboard', absolute: false));
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::warning('User registration validation failed', [
+                'email' => $request->email,
+                'errors' => $e->errors(),
+                'correlation_id' => $request->get('correlation_id'),
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('User registration failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'correlation_id' => $request->get('correlation_id'),
+            ]);
+
+            return redirect()->back()
+                ->withInput($request->except('password', 'password_confirmation'))
+                ->withErrors(['error' => 'Terjadi kesalahan saat registrasi. Silakan coba lagi.']);
+        }
     }
 }

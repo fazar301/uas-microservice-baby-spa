@@ -97,7 +97,14 @@ class ReservationController extends Controller
 
     public function store(Request $request)
     {
+        $correlationId = $request->get('correlation_id') ?? $request->header('X-Correlation-ID');
+        
         try {
+            Log::info('Reservation creation attempt via web', [
+                'user_id' => Auth::id(),
+                'correlation_id' => $correlationId,
+            ]);
+            
             DB::beginTransaction();
 
             // Check if the selected date is a holiday
@@ -282,6 +289,12 @@ class ReservationController extends Controller
 
             DB::commit();
 
+            Log::info('Reservation created successfully via web', [
+                'user_id' => Auth::id(),
+                'reservation_id' => $reservation->id,
+                'correlation_id' => $correlationId,
+            ]);
+
             // Store necessary data in session for payment page
             session([
                 'reservation_id' => $reservation->id,
@@ -302,7 +315,12 @@ class ReservationController extends Controller
             return redirect()->route('payment.show', $reservation);
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Reservation error: ' . $e->getMessage());
+            Log::error('Reservation creation failed via web', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'correlation_id' => $correlationId,
+            ]);
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
