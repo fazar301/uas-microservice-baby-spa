@@ -45,6 +45,7 @@ cp .env.example .env
 5. Generate application key:
 ```bash
 php artisan key:generate
+php artisan storage:link
 ```
 
 6. Configure your database in `.env` file:
